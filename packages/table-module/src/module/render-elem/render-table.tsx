@@ -13,6 +13,7 @@ import { h, jsx, VNode } from 'snabbdom'
 
 import {
   getColumnWidthRatios,
+  getCumulativeWidths,
   handleCellBorderHighlight,
   handleCellBorderMouseDown,
   handleCellBorderVisible,
@@ -20,6 +21,7 @@ import {
   unObserveTableResize,
 } from '../column-resize'
 import { TableElement, TableRowElement } from '../custom-types'
+import { isFullWidthActive } from '../menu/AlwaysFullWidth'
 import {
   handleRowBorderHighlight,
   handleRowBorderMouseDown,
@@ -63,8 +65,9 @@ function renderTable(elemNode: SlateElement, children: VNode[] | null, editor: I
   const editable = getContentEditable(editor, elemNode)
 
   // 宽度和高度
+
   const {
-    width: tableWidth = 'auto',
+    width: propsWidth,
     height,
     columnWidths = [],
     scrollWidth = 0,
@@ -76,12 +79,20 @@ function renderTable(elemNode: SlateElement, children: VNode[] | null, editor: I
     isResizingRow,
   } = elemNode as TableElement
 
+  // 优先使用外部的赋值
+  let tableWidth = propsWidth
   // 光标是否选中
   const selected = DomEditor.isNodeSelected(editor, elemNode)
   // 光标是否有选区
   const [isSelecting] = TableCursor.selection(editor)
   // 列宽之间比值
   const columnWidthRatios = getColumnWidthRatios(columnWidths)
+
+  const isFullWidth = isFullWidthActive(editor)
+
+  if (isFullWidth) {
+    tableWidth = '100%'
+  }
 
   const vnode = (
     <div
@@ -127,9 +138,7 @@ function renderTable(elemNode: SlateElement, children: VNode[] | null, editor: I
          * 3. 鼠标移动到 单元格 边缘，设置 visible className
          */
         className={`table ${isSelecting ? 'table-selection-none' : ''}`}
-        style={{
-          width: tableWidth === '100%' ? tableWidth : `${columnWidths.reduce((a, b) => a + b, 0)}px`,
-        }}
+        style={{ width: tableWidth }}
         on={{
           mousemove: debounce(
             (e: MouseEvent) => {
@@ -156,20 +165,24 @@ function renderTable(elemNode: SlateElement, children: VNode[] | null, editor: I
       </table>
 
       <div className="column-resizer" contentEditable={false}>
-        {columnWidths.map((width, index) => {
-          let minWidth = width
-          /**
-           * table width 为 100% 模式时
-           * columnWidths 表示的是比例
-           * 1. 需要计算出真实的宽度
-           */
+        {(() => {
+          // 计算实际宽度数组
+          const actualWidths = tableWidth === '100%'
+            ? columnWidthRatios.map(ratio => ratio * scrollWidth)
+            : columnWidths
 
-          if (tableWidth === '100%') {
-            minWidth = columnWidthRatios[index] * scrollWidth
-          }
+          // 计算累积宽度数组
+          const cumulativeWidths = getCumulativeWidths(actualWidths)
 
-          return (
-            <div className="column-resizer-item" style={{ minWidth: `${minWidth}px` }}>
+          return columnWidths.map((_width, index) => (
+            <div
+              className="column-resizer-item"
+              style={{
+                position: 'absolute',
+                left: `${cumulativeWidths[index]}px`,
+                top: '0px',
+              }}
+            >
               <div
                 className={
                   `resizer-line-hotzone ${
@@ -186,35 +199,43 @@ function renderTable(elemNode: SlateElement, children: VNode[] | null, editor: I
                 <div className="resizer-line"></div>
               </div>
             </div>
-          )
-        })}
+          ))
+        })()}
       </div>
 
       <div className="row-resizer" contentEditable={false}>
-        {(elemNode as TableElement).children.map((rowNode, index) => {
-          const totalTableWidth = columnWidths.reduce((a, b) => a + b, 0)
-          const rowHeight = (rowNode as TableRowElement).height || 30
+        {(() => {
+          // 计算表格实际宽度
+          const actualWidths = tableWidth === '100%'
+            ? columnWidthRatios.map(ratio => ratio * scrollWidth)
+            : columnWidths
 
-          return (
-            <div className="row-resizer-item" style={{ minHeight: `${rowHeight}px` }}>
-              <div
-                className={
-                  `resizer-line-hotzone-horizontal ${
-                    isHoverRowBorder && index === resizingRowIndex ? 'visible ' : ''
-                  }${isResizingRow && index === resizingRowIndex ? 'highlight' : ''}`
-                }
-                style={{ width: `${totalTableWidth}px` }}
-                on={{
-                  mouseenter: (e: MouseEvent) => handleRowBorderHighlight(editor, e),
-                  mouseleave: (e: MouseEvent) => handleRowBorderHighlight(editor, e),
-                  mousedown: (_e: MouseEvent) => handleRowBorderMouseDown(editor, elemNode),
-                }}
-              >
-                <div className="resizer-line-horizontal"></div>
+          const totalTableWidth = actualWidths.reduce((sum, width) => sum + width, 0)
+
+          return (elemNode as TableElement).children.map((rowNode, index) => {
+            const rowHeight = (rowNode as TableRowElement).height || 30
+
+            return (
+              <div className="row-resizer-item" style={{ minHeight: `${rowHeight}px` }}>
+                <div
+                  className={
+                    `resizer-line-hotzone-horizontal ${
+                      isHoverRowBorder && index === resizingRowIndex ? 'visible ' : ''
+                    }${isResizingRow && index === resizingRowIndex ? 'highlight' : ''}`
+                  }
+                  style={{ width: `${totalTableWidth}px` }}
+                  on={{
+                    mouseenter: (e: MouseEvent) => handleRowBorderHighlight(editor, e),
+                    mouseleave: (e: MouseEvent) => handleRowBorderHighlight(editor, e),
+                    mousedown: (_e: MouseEvent) => handleRowBorderMouseDown(editor, elemNode),
+                  }}
+                >
+                  <div className="resizer-line-horizontal"></div>
+                </div>
               </div>
-            </div>
-          )
-        })}
+            )
+          })
+        })()}
       </div>
     </div>
   )

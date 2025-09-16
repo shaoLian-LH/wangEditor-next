@@ -31,6 +31,7 @@ export default {
     deleteRow: '删除行',
     deleteTable: '删除表格',
     widthAuto: '适应宽度',
+    alwaysFullWidth: '始终适应宽度',
     insertCol: '插入列',
     insertRow: '插入行',
     insertTable: '插入表格',

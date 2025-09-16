@@ -3,6 +3,7 @@
  * @author wangfupeng
  */
 
+import AlwaysFullWidth from './AlwaysFullWidth'
 import CellProperty from './CellProperty'
 import DeleteCol from './DeleteCol'
 import DeleteRow from './DeleteRow'
@@ -69,6 +70,13 @@ export const tableFullWidthMenuConf = {
   key: 'tableFullWidth',
   factory() {
     return new FullWidth()
+  },
+}
+
+export const tableAlwaysFullWidthMenuConf = {
+  key: 'tableAlwaysFullWidth',
+  factory() {
+    return new AlwaysFullWidth()
   },
 }
 

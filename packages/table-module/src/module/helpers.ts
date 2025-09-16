@@ -48,3 +48,12 @@ export function isCellInFirstRow(editor: IDomEditor, cellNode: TableCellElement)
 
   return firstRowCells.some(c => c === cellNode)
 }
+
+/**
+ * 限制数字的小数位
+ * @param n 目标数字
+ * @param fixed 目标小数位
+ */
+export function numberToFixed(n: number, fixed: number = 2) {
+  return parseInt(Number(n).toFixed(fixed), 10)
+}

@@ -17,6 +17,7 @@ import {
   setTableCellPropertyConf,
   setTablePropertyConf,
   splitTableCellConf,
+  tableAlwaysFullWidthMenuConf,
   tableFullWidthMenuConf,
   tableHeaderMenuConf,
 } from './menu/index'
@@ -45,6 +46,7 @@ const table: Partial<IModuleConf> = {
     deleteTableColConf,
     tableHeaderMenuConf,
     tableFullWidthMenuConf,
+    tableAlwaysFullWidthMenuConf,
     mergeTableCellConf,
     splitTableCellConf,
     setTablePropertyConf,

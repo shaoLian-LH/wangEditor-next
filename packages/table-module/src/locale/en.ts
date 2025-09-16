@@ -31,6 +31,7 @@ export default {
     deleteRow: 'Delete row',
     deleteTable: 'Delete table',
     widthAuto: 'Fit width',
+    alwaysFullWidth: 'Always fit width',
     insertCol: 'Insert column',
     insertRow: 'Insert row',
     insertTable: 'Insert table',

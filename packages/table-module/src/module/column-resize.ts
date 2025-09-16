@@ -5,11 +5,13 @@ import { Editor, Element as SlateElement, Transforms } from 'slate'
 import { isOfType } from '../utils'
 import $ from '../utils/dom'
 import { TableElement } from './custom-types'
+import { numberToFixed } from './helpers'
+import { isFullWidthActive } from './menu/AlwaysFullWidth'
 
 /** *
  * 计算 cell border 距离 table 左侧距离
  */
-function getCumulativeWidths(columnWidths: number[]) {
+export function getCumulativeWidths(columnWidths: number[]) {
   const cumulativeWidths: number[] = []
   let totalWidth = 0
 
@@ -80,7 +82,6 @@ const $window = $(window)
 function onMouseDown(event: Event) {
   const elem = event.target as HTMLElement
   // 判断是否为光标选区行为，对列宽变更行为进行过滤
-  // console.log('onMouseDown', elem)
 
   if (elem.closest('[data-block-type="table-cell"]')) {
     isSelectionOperation = true
@@ -143,7 +144,6 @@ function calculateAdjacentWidthsByBorderPosition(
 ): number[] {
   const newWidths = [...columnWidths]
 
-  // 检查边界范围
   if (resizingIndex < 0 || resizingIndex >= columnWidths.length) {
     return newWidths
   }
@@ -152,17 +152,65 @@ function calculateAdjacentWidthsByBorderPosition(
   const { minWidth = 60 } = editor.getMenuConfig('insertTable')
   const minColumnWidth = parseInt(minWidth.toString(), 10) || 60
 
-  // 计算当前边界的左边界位置（前面所有列的宽度总和）
+  // 判断是否为全宽模式
+  if (!isFullWidthActive(editor)) {
+    // 非全宽模式，使用原有逻辑：只调整当前列宽度，表格整体宽度变化
+    const targetBorderPosition = mousePositionInTable
+    const leftBoundary = resizingIndex === 0 ? 0 : cumulativeWidths[resizingIndex - 1]
+    const newColumnWidth = targetBorderPosition - leftBoundary
+    const adjustedWidth = Math.max(minColumnWidth, newColumnWidth)
+
+    newWidths[resizingIndex] = numberToFixed(Math.floor(adjustedWidth * 100) / 100)
+    return newWidths
+  }
+
+  // 全宽模式，需要调整相邻元素宽度以保持表格总宽度不变
+  const targetBorderPosition = mousePositionInTable
   const leftBoundary = resizingIndex === 0 ? 0 : cumulativeWidths[resizingIndex - 1]
+  const newColumnWidth = targetBorderPosition - leftBoundary
+  const adjustedWidth = Math.max(minColumnWidth, newColumnWidth)
 
-  // 计算鼠标位置相对于当前列左边界的偏移
-  const mouseOffset = mousePositionInTable - leftBoundary
+  // 计算宽度变化量
+  const widthChange = adjustedWidth - columnWidths[resizingIndex]
 
-  // 确保不小于最小宽度
-  const newWidth = Math.max(minColumnWidth, mouseOffset)
+  // 设置当前列的新宽度
+  newWidths[resizingIndex] = numberToFixed(Math.floor(adjustedWidth * 100) / 100)
 
-  // 直接设置当前列的宽度，其他列保持不变
-  newWidths[resizingIndex] = Math.floor(newWidth * 100) / 100
+  // 调整相邻元素宽度以补偿变化
+  if (Math.abs(widthChange) < 0.1) { // 避免微小变化
+    return newWidths
+  }
+
+  if (widthChange > 0) {
+    // 当前列宽度增加，需要减少其他列宽度
+    // 优先调整右侧相邻列，如果不存在则调整左侧
+    if (resizingIndex + 1 < columnWidths.length) {
+      // 调整右侧相邻列
+      const rightColumnNewWidth = Math.max(minColumnWidth, columnWidths[resizingIndex + 1] - widthChange)
+
+      newWidths[resizingIndex + 1] = numberToFixed(Math.floor(rightColumnNewWidth * 100) / 100)
+    } else if (resizingIndex > 0) {
+      // 调整左侧相邻列
+      const leftColumnNewWidth = Math.max(minColumnWidth, columnWidths[resizingIndex - 1] - widthChange)
+
+      newWidths[resizingIndex - 1] = numberToFixed(Math.floor(leftColumnNewWidth * 100) / 100)
+    }
+    return newWidths
+  }
+
+  // 当前列宽度减少，需要增加其他列宽度
+  // 优先调整右侧相邻列，如果不存在则调整左侧
+  if (resizingIndex + 1 < columnWidths.length) {
+    // 调整右侧相邻列
+    const rightColumnNewWidth = columnWidths[resizingIndex + 1] - widthChange
+
+    newWidths[resizingIndex + 1] = numberToFixed(Math.floor(rightColumnNewWidth * 100) / 100)
+  } else if (resizingIndex > 0) {
+    // 调整左侧相邻列
+    const leftColumnNewWidth = columnWidths[resizingIndex - 1] - widthChange
+
+    newWidths[resizingIndex - 1] = numberToFixed(Math.floor(leftColumnNewWidth * 100) / 100)
+  }
 
   return newWidths
 }
@@ -193,10 +241,15 @@ const onMouseMove = throttle((event: Event) => {
 
     // 计算边界的新位置
     const cumulativeWidths = getCumulativeWidths(columnWidths)
-    const newBorderPosition = mousePositionInTable
 
     // 根据新的边界位置计算列宽度
-    adjustColumnWidths = calculateAdjacentWidthsByBorderPosition(columnWidths, resizingIndex, newBorderPosition, cumulativeWidths, editorWhenMouseDown)
+    adjustColumnWidths = calculateAdjacentWidthsByBorderPosition(
+      columnWidths,
+      resizingIndex,
+      mousePositionInTable,
+      cumulativeWidths,
+      editorWhenMouseDown,
+    )
   } else {
     // 如果找不到表格元素，则使用简单的宽度变化逻辑
     adjustColumnWidths = calculateAdjacentWidths(columnWidths, resizingIndex, widthChange, editorWhenMouseDown)
