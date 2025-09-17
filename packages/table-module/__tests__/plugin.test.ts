@@ -26,7 +26,7 @@ describe('TableModule module', () => {
 
       newEditor.insertBreak()
 
-      expect(mockFn).toBeCalledWith('\n\r')
+      expect(mockFn).toBeCalledWith('\n')
     })
 
     test('use withTable plugin when insertData should insertText to cell', () => {
