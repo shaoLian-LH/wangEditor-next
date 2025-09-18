@@ -22,11 +22,11 @@ describe('TableModule module', () => {
 
       const mockFn = vi.fn()
 
-      newEditor.insertText = mockFn
+      newEditor.insertNode = mockFn
 
       newEditor.insertBreak()
 
-      expect(mockFn).toBeCalledWith('\n')
+      expect(mockFn).toBeCalledWith({ text: '\n' })
     })
 
     test('use withTable plugin when insertData should insertText to cell', () => {
